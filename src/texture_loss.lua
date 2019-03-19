@@ -18,7 +18,7 @@ function TextureLoss:__init(strength, target, normalize)
 
   local tsz = target:size()
   self.target = target:add_dummy()
-  
+
   self.loss = 0
 
   self.gram = GramMatrix()
@@ -27,19 +27,18 @@ function TextureLoss:__init(strength, target, normalize)
   self.active = true
 end
 
-
 function TextureLoss:updateOutput(input)
-  if self.active then 
+  if self.active then
     -- input is 4d 
     local sz = input:size()
 
     -- now batch_size x C x WH
-    local input3d = input:view(sz[1], sz[2], sz[3]*sz[4])
+    local input3d = input:view(sz[1], sz[2], sz[3] * sz[4])
 
     self.G = self.gram:forward(input3d)
     self.G:div(input[1]:nElement())
     self.match_to = self.target:expandAs(self.G)
-    
+
     self.loss = self.crit:forward(self.G, self.match_to)
     self.loss = self.loss * self.strength
 
@@ -54,12 +53,12 @@ function TextureLoss:updateGradInput(input, gradOutput)
     dG:div(input[1]:nElement())
 
     local sz = input:size()
-    local input3d = input:view(sz[1], sz[2], sz[3]*sz[4])
+    local input3d = input:view(sz[1], sz[2], sz[3] * sz[4])
     self.gradInput = self.gram:backward(input3d, dG):viewAs(input)
     self.gradInput:mul(self.strength)
     self.gradInput:add(gradOutput)
   else
-    self.gradInput  = gradOutput
+    self.gradInput = gradOutput
   end
   return self.gradInput
 end

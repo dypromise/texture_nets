@@ -5,22 +5,22 @@ require 'src/SpatialCircularPadding'
 ----------------------------------------------------------
 -- Shortcuts 
 ----------------------------------------------------------
-function conv(in_,out_, k, s, m)
-    m = m or 1
-    s = s or 1
+function conv(in_, out_, k, s, m)
+  m = m or 1
+  s = s or 1
 
-    local to_pad = (k-1)/2*m
+  local to_pad = (k - 1) / 2 * m
 
-    if to_pad == 0 then
-      return backend.SpatialConvolution(in_, out_, k, k, s, s, 0, 0)
-    else
+  if to_pad == 0 then
+    return backend.SpatialConvolution(in_, out_, k, k, s, s, 0, 0)
+  else
 
-      local net = nn.Sequential()
-      net:add(pad(to_pad,to_pad,to_pad,to_pad))
-      net:add(backend.SpatialConvolution(in_, out_, k, k, s, s, 0, 0))
+    local net = nn.Sequential()
+    net:add(pad(to_pad, to_pad, to_pad, to_pad))
+    net:add(backend.SpatialConvolution(in_, out_, k, k, s, s, 0, 0))
 
-      return net
-    end
+    return net
+  end
 end
 
 ---------------------------------------------------------
@@ -29,27 +29,27 @@ end
 
 -- from fb.resnet.torch
 function deepCopy(tbl)
-   -- creates a copy of a network with new modules and the same tensors
-   local copy = {}
-   for k, v in pairs(tbl) do
-      if type(v) == 'table' then
-         copy[k] = deepCopy(v)
-      else
-         copy[k] = v
-      end
-   end
-   if torch.typename(tbl) then
-      torch.setmetatable(copy, torch.typename(tbl))
-   end
-   return copy
+  -- creates a copy of a network with new modules and the same tensors
+  local copy = {}
+  for k, v in pairs(tbl) do
+    if type(v) == 'table' then
+      copy[k] = deepCopy(v)
+    else
+      copy[k] = v
+    end
+  end
+  if torch.typename(tbl) then
+    torch.setmetatable(copy, torch.typename(tbl))
+  end
+  return copy
 end
 
 -- adds first dummy dimension
 function torch.FloatTensor:add_dummy()
   local sz = self:size()
-  local new_sz = torch.Tensor(sz:size()+1)
+  local new_sz = torch.Tensor(sz:size() + 1)
   new_sz[1] = 1
-  new_sz:narrow(1,2,sz:size()):copy(torch.Tensor{sz:totable()})
+  new_sz:narrow(1, 2, sz:size()):copy(torch.Tensor { sz:totable() })
 
   if self:isContiguous() then
     return self:view(new_sz:long():storage())
@@ -58,7 +58,7 @@ function torch.FloatTensor:add_dummy()
   end
 end
 
-if cutorch then 
+if cutorch then
   torch.CudaTensor.add_dummy = torch.FloatTensor.add_dummy
 end
 
@@ -74,7 +74,6 @@ function DummyGradOutput:__init()
   self.gradInput = nil
 end
 
-
 function DummyGradOutput:updateOutput(input)
   self.output = input
   return self.output
@@ -84,8 +83,8 @@ function DummyGradOutput:updateGradInput(input, gradOutput)
   self.gradInput = self.gradInput or input.new():resizeAs(input):fill(0)
   if not input:isSameSizeAs(self.gradInput) then
     self.gradInput = self.gradInput:resizeAs(input):fill(0)
-  end  
-  return self.gradInput 
+  end
+  return self.gradInput
 end
 
 ----------------------------------------------------------
@@ -109,7 +108,7 @@ function NoiseFill:updateOutput(input)
   -- copy non-noise part
   if self.num_noise_channels ~= input:size(2) then
     local ch_to_copy = input:size(2) - self.num_noise_channels
-    self.output:narrow(2,1,ch_to_copy):copy(input:narrow(2,1,ch_to_copy))
+    self.output:narrow(2, 1, ch_to_copy):copy(input:narrow(2, 1, ch_to_copy))
   end
 
   -- fill noise
@@ -117,14 +116,14 @@ function NoiseFill:updateOutput(input)
     local num_channels = input:size(2)
     local first_noise_channel = num_channels - self.num_noise_channels + 1
 
-    self.output:narrow(2,first_noise_channel, self.num_noise_channels):uniform():mul(self.mult)
+    self.output:narrow(2, first_noise_channel, self.num_noise_channels):uniform():mul(self.mult)
   end
   return self.output
 end
 
 function NoiseFill:updateGradInput(input, gradOutput)
-   self.gradInput = gradOutput
-   return self.gradInput
+  self.gradInput = gradOutput
+  return self.gradInput
 end
 
 ----------------------------------------------------------
@@ -135,30 +134,30 @@ end
 
 local GenNoise, parent = torch.class('nn.GenNoise', 'nn.Module')
 
-function  GenNoise:__init(num_planes)
-    self.num_planes = num_planes
-    self.mult = 1.0
+function GenNoise:__init(num_planes)
+  self.num_planes = num_planes
+  self.mult = 1.0
 end
 function GenNoise:updateOutput(input)
-    self.sz = input:size()
+  self.sz = input:size()
 
-    self.sz_ = input:size()
-    self.sz_[2] = self.num_planes
+  self.sz_ = input:size()
+  self.sz_[2] = self.num_planes
 
-    self.output = self.output or input.new()
-    self.output:resize(self.sz_)
-    
-    -- It is concated with normed data, so gen from N(0,1)
-    self.output:normal(0,1):mul(self.mult)
+  self.output = self.output or input.new()
+  self.output:resize(self.sz_)
 
-   return self.output
+  -- It is concated with normed data, so gen from N(0,1)
+  self.output:normal(0, 1):mul(self.mult)
+
+  return self.output
 end
 
 function GenNoise:updateGradInput(input, gradOutput)
-   self.gradInput = self.gradInput or gradOutput.new()
-   self.gradInput:resizeAs(input):zero()
-   
-   return self.gradInput
+  self.gradInput = self.gradInput or gradOutput.new()
+  self.gradInput:resizeAs(input):zero()
+
+  return self.gradInput
 end
 
 ---------------------------------------------------------
@@ -169,8 +168,8 @@ end
 -- We need to rescale from [0, 1] to [0, 255], convert from RGB to BGR,
 -- and subtract the mean pixel.
 function preprocess(img)
-  local mean_pixel = torch.FloatTensor({103.939, 116.779, 123.68})
-  local perm = torch.LongTensor{3, 2, 1}
+  local mean_pixel = torch.FloatTensor({ 103.939, 116.779, 123.68 })
+  local perm = torch.LongTensor { 3, 2, 1 }
   img = img:index(1, perm):mul(255.0)
   mean_pixel = mean_pixel:view(3, 1, 1):expandAs(img)
   img:add(-1, mean_pixel)
@@ -179,7 +178,7 @@ end
 
 function preprocess_many(images)
   local out = images:clone()
-  for i=1, images:size(1) do
+  for i = 1, images:size(1) do
     out[i] = preprocess(images[i]:clone())
   end
   return out
@@ -188,10 +187,10 @@ end
 
 -- Undo the above preprocessing.
 function deprocess(img)
-  local mean_pixel = torch.DoubleTensor({103.939, 116.779, 123.68})
+  local mean_pixel = torch.DoubleTensor({ 103.939, 116.779, 123.68 })
   mean_pixel = mean_pixel:view(3, 1, 1):expandAs(img)
   img = img + mean_pixel
-  local perm = torch.LongTensor{3, 2, 1}
+  local perm = torch.LongTensor { 3, 2, 1 }
   img = img:index(1, perm):div(255.0)
   return img
 end
@@ -215,17 +214,17 @@ end
 -- TV loss backward pass inspired by kaishengtai/neuralart
 function TVLoss:updateGradInput(input, gradOutput)
   self.gradInput:resizeAs(input):zero()
-  
+
   local N, C, H, W = input:size(1), input:size(2), input:size(3), input:size(4)
   self.x_diff:resize(N, C, H - 1, W - 1)
   self.y_diff:resize(N, C, H - 1, W - 1)
-  self.x_diff:copy(input[{{}, {}, {1, -2}, {1, -2}}])
-  self.x_diff:add(-1, input[{{}, {}, {1, -2}, {2, -1}}])
-  self.y_diff:copy(input[{{}, {}, {1, -2}, {1, -2}}])
-  self.y_diff:add(-1, input[{{}, {}, {2, -1}, {1, -2}}])
-  self.gradInput[{{}, {}, {1, -2}, {1, -2}}]:add(self.x_diff):add(self.y_diff)
-  self.gradInput[{{}, {}, {1, -2}, {2, -1}}]:add(-1, self.x_diff)
-  self.gradInput[{{}, {}, {2, -1}, {1, -2}}]:add(-1, self.y_diff)
+  self.x_diff:copy(input[{ {}, {}, { 1, -2 }, { 1, -2 } }])
+  self.x_diff:add(-1, input[{ {}, {}, { 1, -2 }, { 2, -1 } }])
+  self.y_diff:copy(input[{ {}, {}, { 1, -2 }, { 1, -2 } }])
+  self.y_diff:add(-1, input[{ {}, {}, { 2, -1 }, { 1, -2 } }])
+  self.gradInput[{ {}, {}, { 1, -2 }, { 1, -2 } }]:add(self.x_diff):add(self.y_diff)
+  self.gradInput[{ {}, {}, { 1, -2 }, { 2, -1 } }]:add(-1, self.x_diff)
+  self.gradInput[{ {}, {}, { 2, -1 }, { 1, -2 } }]:add(-1, self.y_diff)
 
   self.gradInput:mul(self.strength)
   self.gradInput:add(gradOutput)
