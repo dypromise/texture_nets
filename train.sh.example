@@ -1,4 +1,3 @@
-cd ..
 th train.lua \
     -data /media/bigdrive/dingyang/dataset \
     -style_image ./data/readme_pics/Portrait_de_Metzinger.jpg \
@@ -12,6 +11,5 @@ th train.lua \
     -content_layers relu4_2 \
     -checkpoints_path data/checkpoints/ \
     -num_iterations 50000 \
-    -gpu 0 \
+    -gpu 1 \
     > train.log 2>&1
-cd scripts

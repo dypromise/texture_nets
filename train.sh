@@ -5,8 +5,8 @@ th train.lua \
     -image_size 512 \
     -model johnson \
     -batch_size 2 \
-    -learning_rate 0.001 \
-    -style_weight 20 \
+    -learning_rate 0.005 \
+    -style_weight 30 \
     -style_layers relu1_2,relu2_2,relu3_2,relu4_2 \
     -content_layers relu4_2 \
     -checkpoints_path data/checkpoints/ \
