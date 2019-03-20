@@ -266,8 +266,8 @@ for it = 1, params.num_iterations do
     end
   end
 
-  if it % 2000 == 0 then
-    state.learningRate = state.learningRate * 0.8
+  if it % 5000 == 0 then
+    state.learningRate = state.learningRate * 0.3
   end
 
   -- Dump net
