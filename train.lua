@@ -10,8 +10,7 @@ require "src/preprocess_criterion"
 
 local DataLoader = require "dataloader"
 
-use_display,
-  display = pcall(require, "display")
+use_display, display = pcall(require, "display")
 if not use_display then
   print("torch.display not found. unable to plot")
 end
@@ -127,6 +126,7 @@ params.texture_weight = params.style_weight
 params.texture_layers = params.style_layers
 params.texture = params.style_image
 
+-- Specify normalization mode
 if params.normalization == "instance" then
   require "InstanceNormalization"
   normalization = nn.InstanceNormalization
@@ -134,6 +134,7 @@ elseif params.normalization == "batch" then
   normalization = nn.SpatialBatchNormalization
 end
 
+-- If texture synthesis, no content layers
 if params.mode == "texture" then
   params.content_layers = ""
   pad = nn.SpatialCircularPadding
@@ -144,14 +145,14 @@ else
   pad = nn.SpatialReplicationPadding
 end
 
-trainLoader,
-  valLoader = DataLoader.create(params)
+-- Create dataloader
+trainLoader, valLoader = DataLoader.create(params)
 
--- load network
+-- Load network
 local cnn = loadcaffe.load(params.proto_file, params.model_file, "nn")
 cnn = cudnn.convert(cnn, nn):float()
 
--- load texture
+-- Load texture image
 local texture_image = image.load(params.texture, 3)
 if params.style_size > 0 then
   texture_image = image.scale(texture_image, params.style_size, "bicubic")
@@ -162,6 +163,7 @@ local texture_image = preprocess(texture_image)
 -- Define model
 local net = require("models/" .. params.model):type(dtype)
 
+-- Criterion
 local criterion = nil
 if params.pyramid_loss > 1 then
   criterion = nn.MultiCriterion()
@@ -194,11 +196,8 @@ end
 ----------------------------------------------------------
 -- feval
 ----------------------------------------------------------
-
 local iteration = 0
-
-local parameters,
-  gradParameters = net:getParameters()
+local parameters, gradParameters = net:getParameters()
 local loss_history = {}
 function feval(x)
   iteration = iteration + 1

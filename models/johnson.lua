@@ -1,5 +1,5 @@
 local function res_block()
-  -- Convolutions  
+  -- Convolutions
   local conv_block = nn.Sequential()
 
   conv_block:add(pad(1, 1, 1, 1))
@@ -22,7 +22,7 @@ end
 
 local model = nn.Sequential()
 
-if params.mode == 'texture' then
+if params.mode == "texture" then
   model:add(nn.NoiseFill(3))
 end
 

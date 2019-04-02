@@ -1,4 +1,4 @@
-local ContentLoss, parent = torch.class('nn.ContentLoss', 'nn.Module')
+local ContentLoss, parent = torch.class("nn.ContentLoss", "nn.Module")
 
 function ContentLoss:__init(strength, normalize)
   parent.__init(self)
@@ -16,7 +16,7 @@ function ContentLoss:updateOutput(input)
       self.loss = self.crit:forward(input, self.target) * self.strength
     end
   end
-  
+
   self.output = input
   return self.output
 end

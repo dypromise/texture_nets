@@ -9,18 +9,18 @@
 --  Multi-threaded data loader
 --
 
-local datasets = require 'datasets/init'
-local Threads = require 'threads'
-Threads.serialization('threads.sharedserialize')
+local datasets = require "datasets/init"
+local Threads = require "threads"
+Threads.serialization("threads.sharedserialize")
 
 local M = {}
-local DataLoader = torch.class('resnet.DataLoader', M)
+local DataLoader = torch.class("resnet.DataLoader", M)
 
 function DataLoader.create(opt)
   -- The train and val loader
   local loaders = {}
 
-  for i, split in ipairs { 'train', 'val' } do
+  for i, split in ipairs {"train", "val"} do
     local dataset = datasets.create(opt, split)
     loaders[i] = M.DataLoader(dataset, opt, split)
   end
@@ -31,7 +31,7 @@ end
 function DataLoader:__init(dataset, opt, split)
   local manualSeed = opt.manualSeed or 0
   local function init()
-    require('datasets/' .. opt.dataset)
+    require("datasets/" .. opt.dataset)
   end
   local function main(idx)
     if manualSeed ~= 0 then
@@ -64,7 +64,7 @@ function DataLoader:get()
   if out then
     return out
   else
-    print('new loop')
+    print("new loop")
     self.loop = self:run()
     local n, out = self.loop()
     return out
@@ -81,54 +81,51 @@ function DataLoader:run()
     while idx <= size and threads:acceptsjob() do
       local indices = torch.FloatTensor(batchSize):random(size)
       threads:addjob(
-          function(indices, nCrops)
+        function(indices, nCrops)
+          local sz = indices:size(1)
+          local batch_input, batch_target, imageSize
 
-            local sz = indices:size(1)
-            local batch_input, batch_target, imageSize
+          for i, idx in ipairs(indices:totable()) do
+            -- if it's too small reject
+            local out = _G.dataset:get(idx)
 
-            for i, idx in ipairs(indices:totable()) do
-
-              -- if it's too small reject
-              local out = _G.dataset:get(idx)
-
-              if not out then
-                while true do
-                  out = _G.dataset:get(torch.random(size))
-                  if out then
-                    break
-                  end
+            if not out then
+              while true do
+                out = _G.dataset:get(torch.random(size))
+                if out then
+                  break
                 end
               end
-
-              local img = _G.preprocess(out.img)
-
-              local sample = _G.get_input_target(img)
-              local input = sample.input
-              local target = sample.target
-
-              if not batch_target then
-                imageSize = input:size():totable()
-                targetSize = target:size():totable()
-                -- if nCrops > 1 then table.remove(imageSize, 1) end
-                batch_input = torch.FloatTensor(sz, table.unpack(imageSize))
-                batch_target = torch.FloatTensor(sz, table.unpack(targetSize))
-              end
-              batch_input[i]:copy(sample.input)
-              batch_target[i]:copy(sample.target)
-
             end
-            collectgarbage()
 
-            return {
-              input = batch_input,
-              target = batch_target,
-            }
-          end,
-          function(_sample_)
-            sample = _sample_
-          end,
-          indices,
-          self.nCrops
+            local img = _G.preprocess(out.img)
+
+            local sample = _G.get_input_target(img)
+            local input = sample.input
+            local target = sample.target
+
+            if not batch_target then
+              imageSize = input:size():totable()
+              targetSize = target:size():totable()
+              -- if nCrops > 1 then table.remove(imageSize, 1) end
+              batch_input = torch.FloatTensor(sz, table.unpack(imageSize))
+              batch_target = torch.FloatTensor(sz, table.unpack(targetSize))
+            end
+            batch_input[i]:copy(sample.input)
+            batch_target[i]:copy(sample.target)
+          end
+          collectgarbage()
+
+          return {
+            input = batch_input,
+            target = batch_target
+          }
+        end,
+        function(_sample_)
+          sample = _sample_
+        end,
+        indices,
+        self.nCrops
       )
       idx = idx + batchSize
     end

@@ -1,9 +1,9 @@
-require 'src/content_loss'
-require 'src/texture_loss'
+require "src/content_loss"
+require "src/texture_loss"
 
-require 'loadcaffe'
+require "loadcaffe"
 
-local ArtisticCriterion, parent = torch.class('nn.ArtisticCriterion', 'nn.Criterion')
+local ArtisticCriterion, parent = torch.class("nn.ArtisticCriterion", "nn.Criterion")
 
 function ArtisticCriterion:__init(params, cnn, texture_image)
   parent.__init(self)
@@ -16,7 +16,6 @@ function ArtisticCriterion:__init(params, cnn, texture_image)
 end
 
 function ArtisticCriterion:updateOutput(input, target)
-
   -- Compute target content features
   if #self.content_modules > 0 then
     for k, module in pairs(self.texture_modules) do
@@ -35,7 +34,7 @@ function ArtisticCriterion:updateOutput(input, target)
   for k, module in pairs(self.content_modules) do
     module.active = true
     module.target:resizeAs(module.output)
-    module.target:copy(module.output)
+    module.target:copy(module.output) -- set content target
   end
   self.descriptor_net:forward(input)
 
@@ -59,11 +58,11 @@ function ArtisticCriterion:updateModules()
   self.content_modules = {}
   self.texture_modules = {}
   for key, module in pairs(self.descriptor_net.modules) do
-    if module.tag == 'content' then
-      module.target:cuda();
+    if module.tag == "content" then
+      module.target:cuda()
       table.insert(self.content_modules, module)
-    elseif module.tag == 'texture' then
-      module.target:cuda();
+    elseif module.tag == "texture" then
+      module.target:cuda()
       table.insert(self.texture_modules, module)
     end
   end
@@ -80,7 +79,6 @@ function nop()
 end
 
 function create_descriptor_net(params, cnn, texture_image)
-
   local content_layers = params.content_layers:split(",")
   local texture_layers = params.texture_layers:split(",")
 
@@ -94,11 +92,14 @@ function create_descriptor_net(params, cnn, texture_image)
       local layer = cnn:get(i)
       local name = layer.name
       local layer_type = torch.type(layer)
-      local is_pooling = (layer_type == 'cudnn.SpatialMaxPooling' or layer_type == 'nn.SpatialMaxPooling')
+      local is_pooling = (layer_type == "cudnn.SpatialMaxPooling" or layer_type == "nn.SpatialMaxPooling")
 
-      if params.vgg_no_pad and (layer_type == 'nn.SpatialConvolution' or layer_type == 'nn.SpatialConvolutionMM' or
-          layer_type == 'cudnn.SpatialConvolution') then
-        print(name, ': padding set to 0')
+      if
+        params.vgg_no_pad and
+          (layer_type == "nn.SpatialConvolution" or layer_type == "nn.SpatialConvolutionMM" or
+            layer_type == "cudnn.SpatialConvolution")
+       then
+        print(name, ": padding set to 0")
 
         layer.padW = 0
         layer.padH = 0
@@ -112,9 +113,9 @@ function create_descriptor_net(params, cnn, texture_image)
         print("Setting up content layer", i, ":", layer.name)
 
         local norm = false
-        local loss_module = nn.ContentLoss(params.content_weight, norm);
+        local loss_module = nn.ContentLoss(params.content_weight, norm)
         net:add(loss_module)
-        loss_module.tag = 'content'
+        loss_module.tag = "content"
         next_content_idx = next_content_idx + 1
       end
       ---------------------------------
@@ -122,7 +123,7 @@ function create_descriptor_net(params, cnn, texture_image)
       ---------------------------------
       if name == texture_layers[next_texture_idx] then
         print("Setting up texture layer  ", i, ":", layer.name)
-        local gram = GramMatrix():float();
+        local gram = GramMatrix():float()
 
         local target_features = net:forward(texture_image:add_dummy()):clone()
         local target = gram:forward(nn.View(-1):float():setNumInputDims(2):forward(target_features[1])):clone()
@@ -130,10 +131,10 @@ function create_descriptor_net(params, cnn, texture_image)
         target:div(target_features[1]:nElement())
 
         local norm = params.normalize_gradients
-        local loss_module = nn.TextureLoss(params.texture_weight, target, norm):float();
+        local loss_module = nn.TextureLoss(params.texture_weight, target, norm):float()
 
         net:add(loss_module)
-        loss_module.tag = 'texture';
+        loss_module.tag = "texture"
         next_texture_idx = next_texture_idx + 1
       end
     end
@@ -145,8 +146,10 @@ function create_descriptor_net(params, cnn, texture_image)
   cnn = nil
   for i = 1, #net.modules do
     local module = net.modules[i]
-    if torch.type(module) == 'nn.SpatialConvolutionMM' or torch.type(module) == 'nn.SpatialConvolution' or
-        torch.type(module) == 'cudnn.SpatialConvolution' then
+    if
+      torch.type(module) == "nn.SpatialConvolutionMM" or torch.type(module) == "nn.SpatialConvolution" or
+        torch.type(module) == "cudnn.SpatialConvolution"
+     then
       module.gradWeight = nil
       module.gradBias = nil
     end
